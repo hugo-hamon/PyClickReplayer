@@ -1,9 +1,14 @@
 from .loggingHandler import LoggingHandler
+from .input_recorder import InputRecorder
+from .input_replayer import InputReplayer
 from tkinter import scrolledtext
 from tkinter import filedialog
+from tkinter import N, S, E, W
 from tkinter import ttk
 import tkinter as tk
+import threading
 import logging
+import json
 
 
 class Application(tk.Tk):
@@ -33,12 +38,6 @@ class Application(tk.Tk):
         )
         self.load_button.pack()
 
-        # Bouton pour sauvegarder un fichier
-        self.save_button = ttk.Button(
-            self, text="Save", command=self.save_file
-        )
-        self.save_button.pack()
-
         # Checkbox pour l'option Loop
         self.loop = tk.BooleanVar()
         self.loop_checkbox = ttk.Checkbutton(
@@ -57,24 +56,24 @@ class Application(tk.Tk):
         self.start_button = ttk.Button(self, text="Start", command=self.start)
         self.start_button.pack()
 
-        # Bouton Stop
-        self.stop_button = ttk.Button(self, text="Stop", command=self.stop)
-        self.stop_button.pack()
-
         # Log en temps réel
         self.log_label = ttk.Label(self, text="Logs:")
         self.log_label.pack()
-        self.log_text = scrolledtext.ScrolledText(self, width=40, height=10)
+        self.log_text = scrolledtext.ScrolledText(self, width=50, height=10)
         self.log_text.pack()
 
         # Configurer le gestionnaire de log pour rediriger vers la zone de texte
         log_handler = LoggingHandler(self.log_text)
-        log_formatter = logging.Formatter("%(asctime)s\n%(message)s", "%H:%M:%S")
+        log_formatter = logging.Formatter(
+            "%(asctime)s\n%(message)s", "%H:%M:%S")
         log_handler.setFormatter(log_formatter)
 
         # Ajouter le gestionnaire au logger
         logging.getLogger().addHandler(log_handler)
         logging.getLogger().setLevel(logging.INFO)
+
+        self.mode.trace("w", self.update_ui)
+        self.update_ui()
 
     def start(self) -> None:
         """Lance le record ou le replay avec les paramètres choisis par l'utilisateur."""
@@ -85,25 +84,56 @@ class Application(tk.Tk):
         logging.info(
             f"Mode: {mode}, File: {file_name}, Loop: {loop}, No-Delay: {no_delay}"
         )
-        # TODO: Lancer le record ou le replay avec les paramètres choisis par l'utilisateur.
-
-    def stop(self) -> None:
-        """Arrête le record ou le replay."""
-        logging.info("Stop")
-        # TODO: Arrêter le record ou le replay.
+        if mode == "record":
+            input_recorder = InputRecorder(file_name)
+            threading.Thread(target=input_recorder.record,
+                             daemon=True).start()
+        elif mode == "replay":
+            file_names = file_name.split(", ")
+            print(file_names)
+            if len(file_names) > 1:
+                self.combined_input()
+            input_replayer = InputReplayer(file_names[0] if len(file_names) == 1
+                                           else "inputs/combined_input.json")
+            threading.Thread(target=input_replayer.replay, args=(loop, no_delay),
+                             daemon=True).start()
+        self.update_ui()
 
     def load_file(self) -> None:
         """Charge un fichier json."""
-        if file_path := filedialog.askopenfilename(
+        if file_paths := filedialog.askopenfilenames(
             filetypes=(("json files", "*.json"), ("all files", "*.*"))
         ):
             self.file_entry.delete(0, 'end')
-            self.file_entry.insert(0, file_path)
+            self.file_entry.insert(0, ", ".join(file_paths))
 
-    def save_file(self) -> None:
-        """Sauvegarde un fichier json."""
-        if file_path := filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=(("json files", "*.json"), ("all files", "*.*")),
-        ):
-            self.file_entry.delete(0, 'end')
+    def update_ui(self, *args) -> None:
+        """Update the user interface based on the selected mode."""
+        self.file_entry.delete(0, 'end')
+        if self.mode.get() == "record":
+            self.loop_checkbox.pack_forget()
+            self.no_delay_checkbox.pack_forget()
+            self.load_button.pack_forget()
+            # delete the content of the entry
+        else:
+            self.start_button.pack_forget()
+            self.log_text.pack_forget()
+            self.log_label.pack_forget()
+            self.load_button.pack()
+            self.loop_checkbox.pack()
+            self.no_delay_checkbox.pack()
+            self.start_button.pack()
+            self.log_label.pack()
+            self.log_text.pack()
+
+    def combined_input(self) -> None:
+        """Combine the input from the mouse and keyboard."""
+        combined_inputs = []
+        for file in self.file_entry.get().split(", "):
+            with open(file, "r") as f:
+                data = json.load(f)
+            combined_inputs.extend(data)
+
+        file_name = "inputs/combined_input.json"
+        with open(file_name, "w") as f:
+            json.dump(combined_inputs, f)

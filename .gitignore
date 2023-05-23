@@ -1,0 +1,29 @@
+# Fichiers Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__
+
+# Fichiers de tests
+*.coverage
+.coverage
+.tox
+
+# Environnement virtuel Python
+env/
+venv/
+ENV/
+
+# Fichiers de construction
+build/
+dist/
+*.egg-info/
+
+# Fichiers de logs
+logs/
+
+# Fichiers temporaires
+*.tmp
+*.bak
+*.swp
+*~
