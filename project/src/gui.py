@@ -108,13 +108,12 @@ class Application(tk.Tk):
             self.file_entry.insert(0, ", ".join(file_paths))
 
     def update_ui(self, *args) -> None:
-        """Update the user interface based on the selected mode."""
-        self.file_entry.delete(0, 'end')
+        """Update the user interface based on the selected mode.""" 
         if self.mode.get() == "record":
             self.loop_checkbox.pack_forget()
             self.no_delay_checkbox.pack_forget()
             self.load_button.pack_forget()
-            # delete the content of the entry
+            self.file_entry.delete(0, 'end')
         else:
             self.start_button.pack_forget()
             self.log_text.pack_forget()
